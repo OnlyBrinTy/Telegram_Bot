@@ -1,93 +1,77 @@
-import logging
-from telegram.ext import Application, MessageHandler, filters, CommandHandler
 import os
+import random
 from datetime import datetime
+
+from telegram.ext import Application, MessageHandler, filters, CommandHandler
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from dotenv import load_dotenv
+# from config import BOT_TOKEN
+
+# Запускаем логгирование
+# logging.basicConfig(
+#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
+# )
+#
+# logger = logging.getLogger(__name__)
 
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-# Запускаем логгирование
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
-)
 
-logger = logging.getLogger(__name__)
+# Напишем соответствующие функции.
 
+async def start(update, context):
+    reply_keyboard = [['/dice', '/timer']]
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+    await update.message.reply_text(
+        "Я бот-помощник для настольных игр",
+        reply_markup=markup
+    )
 
-# Определяем функцию-обработчик сообщений.
-# У неё два параметра, updater, принявший сообщение и контекст - дополнительная информация о сообщении.
-async def echo(update, context):
-    # У объекта класса Updater есть поле message,
-    # являющееся объектом сообщения.
-    # У message есть поле text, содержащее текст полученного сообщения,
-    # а также метод reply_text(str),
-    # отсылающий ответ пользователю, от которого получено сообщение.
-    await update.message.reply_text(f'Я получил сообщение {update.message.text}')
+async def help(update, context):
+    await update.message.reply_text(
+        "Я бот-помощник для настольных игр.")
 
 
-async def date(update, context):
-    """Отправляет сообщение когда получена команда /start"""
-    await update.message.reply_html(str(datetime.now().date()),)
+async def dice(update, context):
+    reply_keyboard = [['/one_dice', '/two_dices'],
+                      ['/one_20_dice', '/back']]
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+    await update.message.reply_text(
+        "Выбирай",
+        reply_markup=markup
+    )
+
+async def one_dice(update, context):
+    num = random.randint(1, 6)
+    await update.message.reply_text(num)
 
 
-async def time(update, context):
-    """Отправляет сообщение когда получена команда /start"""
-    await update.message.reply_html(str(datetime.now().time()),)
+async def timer(update, context):
+    await update.message.reply_text("Телефон: +7(495)776-3030")
 
 
-def remove_job_if_exists(name, context):
-    """Удаляем задачу по имени.
-    Возвращаем True если задача была успешно удалена."""
-    current_jobs = context.job_queue.get_jobs_by_name(name)
-    if not current_jobs:
-        return False
-    for job in current_jobs:
-        job.schedule_removal()
-    return True
 
 
-async def task(context):
-    await context.bot.send_message(f'КУКУ! {context.args[0]}c. прошли!',)
 
-
-async def set_timer(update, context):
-    """Добавляем задачу в очередь"""
-    chat_id = update.effective_message.chat_id
-    timer_time = int(context.args[0])
-    # Добавляем задачу в очередь
-    # и останавливаем предыдущую (если она была)
-    job_removed = remove_job_if_exists(str(chat_id), context)
-    context.job_queue.run_once(task, timer_time, chat_id=chat_id, name=str(chat_id), data=timer_time)
-
-    text = f'Вернусь через {timer_time} с.!'
-    if job_removed:
-        text += ' Старая задача удалена.'
-
-    await update.effective_message.reply_text(text)
+async def close_keyboard(update, context):
+    await update.message.reply_text(
+        "Ok",
+        reply_markup=ReplyKeyboardRemove()
+    )
 
 
 def main():
-    # Создаём объект Application.
-    # Вместо слова "TOKEN" надо разместить полученный от @BotFather токен
     application = Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("dice", dice))
+    application.add_handler(CommandHandler("one_dice", one_dice))
 
-    # Создаём обработчик сообщений типа filters.TEXT
-    # из описанной выше асинхронной функции echo()
-    # После регистрации обработчика в приложении
-    # эта асинхронная функция будет вызываться при получении сообщения
-    # с типом "текст", т. е. текстовых сообщений.
-    text_handler = MessageHandler(filters.TEXT, echo)
-
-    application.add_handler(CommandHandler("time", time))
-    application.add_handler(CommandHandler("date", date))
-    application.add_handler(CommandHandler("set_timer", set_timer))
-    # Регистрируем обработчик в приложении.
-    application.add_handler(text_handler)
-
-    # Запускаем приложение.
+    application.add_handler(CommandHandler("back", start))
+    application.add_handler(CommandHandler("timer", timer))
+    application.add_handler(CommandHandler("help", help))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("close", close_keyboard))
     application.run_polling()
 
 
-# Запускаем функцию main() в случае запуска скрипта.
 if __name__ == '__main__':
     main()
